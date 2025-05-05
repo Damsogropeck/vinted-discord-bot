@@ -1,30 +1,29 @@
-import { authorizedRequest } from './request.js';
+import puppeteer from 'puppeteer';
 
-//fetch cookies for the domain with advanced option to have cloudflare cookie
 export const fetchCookie = async () => {
-    //fetch the standard cookies
-    console.log('fetching cookies');
-    const response = await authorizedRequest({
-        method: "GET",
-        url: process.env.BASE_URL+"how_it_works",
+  try {
+    console.log("Launching Puppeteer to fetch Vinted cookie...");
+
+    const browser = await puppeteer.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
 
-    const sessionCookies = response.headers.get('set-cookie');
-    if (!sessionCookies) throw new Error("set-cookie headers not found in the response");
-    const cookiesArray = sessionCookies.split(',');
-    const parsedCookies = cookiesArray.reduce((acc, cookieHeader) => {
-        const cookies = cookieHeader.split(';').map(cookie => cookie.trim().split('=').map(part => part.trim()));
-        cookies.forEach(([name, value]) => {
-            acc[name] = value;
-        });
-        return acc;
-    }, {});
+    const page = await browser.newPage();
+    await page.goto("https://www.vinted.fr/how_it_works", {
+      waitUntil: "networkidle2",
+      timeout: 60000
+    });
 
-    const requiredCookies = ['access_token_web', '_vinted_fr_session'];
-    let cookieHeader = requiredCookies
-        .filter(cookie => parsedCookies[cookie])
-        .map(cookie => `${cookie}=${parsedCookies[cookie]}`)
-        .join('; ');
+    const cookies = await page.cookies();
+    await browser.close();
 
-    return cookieHeader;
+    const cookieString = cookies.map(c => `${c.name}=${c.value}`).join("; ");
+    console.log("✅ Cookie récupéré avec Puppeteer");
+
+    return cookieString;
+  } catch (err) {
+    console.error("❌ Erreur lors de la récupération des cookies Vinted :", err);
+    throw err;
+  }
 };
