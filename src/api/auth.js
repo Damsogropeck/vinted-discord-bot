@@ -1,6 +1,10 @@
 import puppeteer from 'puppeteer';
 
+let cachedCookies = null;
+
 export const fetchCookie = async () => {
+  if (cachedCookies) return cachedCookies;
+
   try {
     console.log("Launching Puppeteer to fetch Vinted cookie...");
 
@@ -21,6 +25,7 @@ export const fetchCookie = async () => {
     const cookieString = cookies.map(c => `${c.name}=${c.value}`).join("; ");
     console.log("✅ Cookie récupéré avec Puppeteer");
 
+    cachedCookies = cookieString;
     return cookieString;
   } catch (err) {
     console.error("❌ Erreur lors de la récupération des cookies Vinted :", err);
