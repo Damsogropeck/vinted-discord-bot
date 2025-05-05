@@ -1,0 +1,21 @@
+{
+    "name": "vinted-discord-bot",
+    "version": "1.13.1",
+    "description": "Notifications pour Vinted via Discord.",
+    "author": "@ewkt",
+    "main": "main.js",
+    "type": "module",
+    "scripts": {
+      "start": "node main.js"
+    },
+    "dependencies": {
+      "discord.js": "^14.15.2",
+      "dotenv": "^16.4.5",
+      "node-fetch": "^3.2.10",
+      "user-agents": "^1.0.1133",
+      "cheerio": "^1.0.0",
+      "https": "^1.0.0",
+      "fs": "^0.0.1-security"
+    }
+  }
+  
