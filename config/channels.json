@@ -1,15 +1,8 @@
 [
     {
-        "channelId": "xxxx",
+        "channelId": "1358132739349418055",
         "channelName": "test1",
         "url": "https://www.vinted.fr/catalog?brand_ids[]=53",
         "frequency": 10
-    },
-    {
-        "channelId": "xxxx",
-        "channelName": "test2",
-        "url": "https://www.vinted.fr/catalog?brand_ids[]=12",
-        "frequency": 6,
-        "titleBlacklist": ["test", "test2"]
     }
 ]
