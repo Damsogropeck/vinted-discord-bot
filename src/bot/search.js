@@ -1,65 +1,89 @@
-import { authorizedRequest } from "../api/request.js";
+import puppeteer from 'puppeteer-extra';
+import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 
-//send the authenticated request
+puppeteer.use(StealthPlugin());
+
 export const vintedSearch = async (channel, cookie, processedArticleIds) => {
-    try {
-        const url = new URL(channel.url);
-        const ids = handleParams(url);
-        const apiUrl = new URL(`https://${url.host}/api/v2/catalog/items`);
-        apiUrl.search = new URLSearchParams({
-            search_text: ids.text,
-            catalog_ids: ids.catalog,
-            price_from: ids.min,
-            price_to: ids.max,
-            currency: ids.currency,
-            catalog_from: '0',
-            size_ids: ids.size,
-            brand_ids: ids.brand,
-            status_ids: ids.status,
-            color_ids: ids.colour,
-            patterns_ids: ids.pattern,
-            material_ids: ids.material,
-            order: 'newest_first',
-            page: '1',
-            per_page: '10'
-        }).toString();
-        const response = await authorizedRequest({method: "GET", url: apiUrl.href, oldUrl: channel.url, cookies: cookie, logs: false});
-        const articles = selectNewArticles(response, processedArticleIds, channel);
-        return articles;
-    } catch (err) {
-        console.error('Error during search:', err);
-        return null;
+  const url = channel.url;
+
+  try {
+    const browser = await puppeteer.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
+    });
+
+    const page = await browser.newPage();
+    await page.setExtraHTTPHeaders({
+      'Accept-Language': 'fr-FR,fr;q=0.9'
+    });
+
+    // Appliquer les cookies (même si ce n’est pas strictement nécessaire ici)
+    if (cookie) {
+      await page.setCookie(...cookie.split(';').map(pair => {
+        const [name, value] = pair.trim().split('=');
+        return { name, value, domain: '.vinted.fr' };
+      }));
     }
-};
 
-//chooses only articles not already seen & posted in the last 10min
-const selectNewArticles = (articles, processedArticleIds, channel) => {
-    const items = Array.isArray(articles.items) ? articles.items : [];
-    const titleBlacklist = Array.isArray(channel.titleBlacklist) ? channel.titleBlacklist : [];
-    const filteredArticles = items.filter(({ photo, id, title, user }) =>
-      photo &&
-      photo.high_resolution.timestamp * 1000 >  Date.now() - (1000 * 60 * 60) &&
-      !processedArticleIds.has(id) &&
-      !titleBlacklist.some(word => title.toLowerCase().includes(word))
+    console.log(`🔍 Scraping Vinted : ${url}`);
+    await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
+
+    await page.waitForSelector('a[href*="/items/"]');
+
+    const articles = await page.evaluate(() => {
+      const elements = document.querySelectorAll('a[href*="/items/"]');
+      const seen = new Set();
+      const results = [];
+
+      for (const el of elements) {
+        const idMatch = el.href.match(/\/items\/(\d+)/);
+        if (!idMatch) continue;
+        const id = idMatch[1];
+        if (seen.has(id)) continue;
+        seen.add(id);
+
+        const title = el.querySelector('h3')?.innerText ?? '';
+        const priceText = el.querySelector('[data-testid="price"]')?.innerText ?? '';
+        const price = priceText.replace(/[^\d]/g, '') || '0';
+        const img = el.querySelector('img')?.src ?? '';
+        const sizeMatch = el.innerText.match(/Taille[^:]*: ([^\n]+)/);
+        const size = sizeMatch ? sizeMatch[1] : '';
+
+        results.push({
+          id,
+          title,
+          url: el.href,
+          size_title: size,
+          price: {
+            amount: price
+          },
+          photo: {
+            url: img,
+            high_resolution: {
+              timestamp: Date.now() / 1000
+            }
+          }
+        });
+      }
+
+      return results;
+    });
+
+    await browser.close();
+
+    // Filtrage (comme dans l’ancien code)
+    const blacklist = Array.isArray(channel.titleBlacklist) ? channel.titleBlacklist.map(w => w.toLowerCase()) : [];
+
+    const newArticles = articles.filter(a =>
+      !processedArticleIds.has(a.id) &&
+      !blacklist.some(word => a.title.toLowerCase().includes(word)) &&
+      a.photo && a.photo.high_resolution.timestamp * 1000 > Date.now() - 1000 * 60 * 60 // moins d'1h
     );
-    return filteredArticles;
-  };
 
-const handleParams = (url) => {
-    const urlObj = new URL(url);
-    const params = new URLSearchParams(urlObj.search);
-    const idMap = {
-        text: params.get('search_text') || '',
-        catalog: params.getAll('catalog[]').join(',') || '',
-        min: params.get('price_from') || '',
-        max: params.get('price_to') || '',
-        currency: params.get('currency') || '',
-        size: params.getAll('size_ids[]').join(',') || '',
-        brand: params.getAll('brand_ids[]').join(',') || '',
-        status: params.getAll('status_ids[]').join(',') || '',
-        colour: params.getAll('color_ids[]').join(',') || '',
-        pattern: params.getAll('patterns_ids[]').join(',') || '',
-        material: params.getAll('material_ids[]').join(',') || '',
-    };
-    return idMap;
+    return newArticles;
+
+  } catch (err) {
+    console.error("❌ Erreur dans vintedSearch (scraping HTML) :", err);
+    return [];
+  }
 };
