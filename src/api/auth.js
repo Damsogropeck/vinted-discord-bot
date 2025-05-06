@@ -1,4 +1,7 @@
-import puppeteer from 'puppeteer';
+import puppeteer from 'puppeteer-extra';
+import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+
+puppeteer.use(StealthPlugin());
 
 let cachedCookies = null;
 
@@ -6,7 +9,7 @@ export const fetchCookie = async () => {
   if (cachedCookies) return cachedCookies;
 
   try {
-    console.log("Launching Puppeteer to fetch Vinted cookie...");
+    console.log("🚀 Lancement de Puppeteer avec le plugin Stealth...");
 
     const browser = await puppeteer.launch({
       headless: true,
@@ -14,21 +17,23 @@ export const fetchCookie = async () => {
     });
 
     const page = await browser.newPage();
-    await page.goto("https://www.vinted.fr/how_it_works", {
+
+    await page.goto("https://www.vinted.fr/catalog?search_text=nike", {
       waitUntil: "networkidle2",
       timeout: 60000
     });
 
     const cookies = await page.cookies();
-    await browser.close();
-
     const cookieString = cookies.map(c => `${c.name}=${c.value}`).join("; ");
-    console.log("✅ Cookie récupéré avec Puppeteer");
+
+    console.log("✅ Cookie récupéré avec Puppeteer + Stealth");
+
+    await browser.close();
 
     cachedCookies = cookieString;
     return cookieString;
   } catch (err) {
-    console.error("❌ Erreur lors de la récupération des cookies Vinted :", err);
+    console.error("❌ Erreur lors de la récupération du cookie Vinted :", err);
     throw err;
   }
 };
