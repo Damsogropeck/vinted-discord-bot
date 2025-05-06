@@ -4,5 +4,11 @@
         "channelName": "test1",
         "url": "https://www.vinted.fr/catalog?brand_ids[]=53",
         "frequency": 10
+    },
+    {
+        "channelId": "1368995820346802336",
+        "channelName": "chaussuresNikes",
+        "url": "https://www.vinted.fr/catalog?search_id=23119047961&time=1746535462&catalog[]=1231&disabled_personalization=true&catalog_from=0&size_ids[]=788&page=1&price_to=200&currency=EUR&order=newest_first&brand_ids[]=53",
+        "frequency": 10
     }
 ]
