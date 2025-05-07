@@ -7,8 +7,8 @@
     },
     {
         "channelId": "1368995820346802336",
-        "channelName": "chaussuresNikes",
-        "url": "https://www.vinted.fr/catalog?search_id=23119047961&time=1746535462&catalog[]=1231&disabled_personalization=true&catalog_from=0&size_ids[]=788&page=1&price_to=200&currency=EUR&order=newest_first&brand_ids[]=53",
+        "channelName": "test2",
+        "url": "https://www.vinted.fr/catalog?currency=EUR&search_id=23140589219&time=1746604686&disabled_personalization=true&catalog_from=0&page=1&order=newest_first&catalog[]=1231&price_to=200&size_ids[]=788&brand_ids[]=53",
         "frequency": 10
     }
 ]
