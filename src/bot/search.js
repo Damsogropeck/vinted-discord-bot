@@ -20,26 +20,24 @@ function cleanVintedUrl(originalUrl) {
     }
     return `${url.origin}${url.pathname}?${cleanedParams.toString()}`;
   } catch (err) {
-    console.warn("⚠️ URL invalide, on utilise l’originale : ", originalUrl);
+    console.warn("⚠️ URL invalide, utilisation telle quelle :", originalUrl);
     return originalUrl;
   }
 }
 
-// 🧠 Navigation avec retry et timeout
+// 🧠 Navigation avec retry
 async function safeGoto(page, url, maxRetries = 3) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      console.log(`🔍 [Tentative ${attempt}] Chargement de : ${url}`);
+      console.log(`🔍 [Tentative ${attempt}] Navigation vers : ${url}`);
       await page.goto(url, {
         waitUntil: 'domcontentloaded',
         timeout: 60000
       });
-      return;
+      return true;
     } catch (err) {
-      console.warn(`⚠️ Tentative ${attempt} échouée : ${err.message}`);
-      if (attempt === maxRetries) {
-        throw new Error(`❌ Échec après ${maxRetries} tentatives pour : ${url}`);
-      }
+      console.warn(`⚠️ Échec tentative ${attempt}: ${err.message}`);
+      if (attempt === maxRetries) throw err;
       await new Promise(res => setTimeout(res, 2000));
     }
   }
@@ -60,7 +58,7 @@ export const vintedSearch = async (channel, cookie, processedArticleIds) => {
       'Accept-Language': 'fr-FR,fr;q=0.9'
     });
 
-    // Appliquer les cookies (facultatif mais possible)
+    // Appliquer les cookies
     if (cookie) {
       await page.setCookie(...cookie.split(';').map(pair => {
         const [name, value] = pair.trim().split('=');
@@ -69,7 +67,15 @@ export const vintedSearch = async (channel, cookie, processedArticleIds) => {
     }
 
     await safeGoto(page, cleanedUrl);
-    await page.waitForSelector('a[href*="/items/"]', { timeout: 15000 });
+
+    console.log("⏳ Attente de la grille des articles...");
+    try {
+      await page.waitForSelector('a[href*="/items/"]', { timeout: 20000 });
+    } catch (err) {
+      console.warn("⚠️ Aucun article visible dans les 20s — probablement une page vide.");
+      await browser.close();
+      return [];
+    }
 
     const articles = await page.evaluate(() => {
       const elements = document.querySelectorAll('a[href*="/items/"]');
@@ -95,14 +101,10 @@ export const vintedSearch = async (channel, cookie, processedArticleIds) => {
           title,
           url: el.href,
           size_title: size,
-          price: {
-            amount: price
-          },
+          price: { amount: price },
           photo: {
             url: img,
-            high_resolution: {
-              timestamp: Date.now() / 1000
-            }
+            high_resolution: { timestamp: Date.now() / 1000 }
           }
         });
       }
@@ -112,9 +114,8 @@ export const vintedSearch = async (channel, cookie, processedArticleIds) => {
 
     await browser.close();
 
-    // Filtrage des articles
+    // 🎯 Filtrage des articles valides
     const blacklist = Array.isArray(channel.titleBlacklist) ? channel.titleBlacklist.map(w => w.toLowerCase()) : [];
-
     const newArticles = articles.filter(a =>
       !processedArticleIds.has(a.id) &&
       !blacklist.some(word => a.title.toLowerCase().includes(word)) &&
